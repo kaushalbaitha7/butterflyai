@@ -1,4 +1,4 @@
-console.log("🦋 BUTTERFLY AI V2 LOADED");
+console.log("🦋 BUTTERFLY AI LOADED");
 
 
 // ============================================================
@@ -32,7 +32,7 @@ const filePreview =
 
 
 // ============================================================
-// SELECTED FILES
+// FILES
 // ============================================================
 
 let selectedFiles = [];
@@ -44,37 +44,26 @@ let selectedFiles = [];
 
 if (particles) {
 
-    for (
-        let i = 0;
-        i < 50;
-        i++
-    ) {
+    for (let i = 0; i < 50; i++) {
 
         const dot =
             document.createElement("span");
 
-        dot.classList.add(
-            "firefly"
-        );
+        dot.classList.add("firefly");
 
         dot.style.left =
-            Math.random() * 100 +
-            "vw";
+            Math.random() * 100 + "vw";
 
         dot.style.top =
-            Math.random() * 100 +
-            "vh";
+            Math.random() * 100 + "vh";
 
         dot.style.animationDuration =
             (
                 5 +
                 Math.random() * 8
-            ) +
-            "s";
+            ) + "s";
 
-        particles.appendChild(
-            dot
-        );
+        particles.appendChild(dot);
     }
 }
 
@@ -83,46 +72,36 @@ if (particles) {
 // FILE PICKER
 // ============================================================
 
-if (fileInput) {
+fileInput.addEventListener(
+    "change",
+    function () {
 
-    fileInput.addEventListener(
-        "change",
-        function () {
+        addFiles(
+            Array.from(this.files)
+        );
 
-            addFiles(
-                Array.from(
-                    this.files
-                )
-            );
+        this.value = "";
 
-            this.value = "";
-
-        }
-    );
-}
+    }
+);
 
 
 // ============================================================
 // IMAGE PICKER
 // ============================================================
 
-if (imageInput) {
+imageInput.addEventListener(
+    "change",
+    function () {
 
-    imageInput.addEventListener(
-        "change",
-        function () {
+        addFiles(
+            Array.from(this.files)
+        );
 
-            addFiles(
-                Array.from(
-                    this.files
-                )
-            );
+        this.value = "";
 
-            this.value = "";
-
-        }
-    );
-}
+    }
+);
 
 
 // ============================================================
@@ -136,10 +115,10 @@ function addFiles(files) {
 
             const exists =
                 selectedFiles.some(
-                    existing =>
-                        existing.name ===
+                    oldFile =>
+                        oldFile.name ===
                         file.name &&
-                        existing.size ===
+                        oldFile.size ===
                         file.size
                 );
 
@@ -156,35 +135,15 @@ function addFiles(files) {
     );
 
 
-    renderFilePreview();
+    showFiles();
 }
 
 
 // ============================================================
-// REMOVE FILE
+// SHOW FILES
 // ============================================================
 
-function removeFile(index) {
-
-    selectedFiles.splice(
-        index,
-        1
-    );
-
-    renderFilePreview();
-}
-
-
-// ============================================================
-// FILE PREVIEW
-// ============================================================
-
-function renderFilePreview() {
-
-    if (!filePreview) {
-        return;
-    }
-
+function showFiles() {
 
     if (
         selectedFiles.length === 0
@@ -220,11 +179,11 @@ function renderFilePreview() {
             row.style.display =
                 "flex";
 
-            row.style.alignItems =
-                "center";
-
             row.style.justifyContent =
                 "space-between";
+
+            row.style.alignItems =
+                "center";
 
             row.style.padding =
                 "7px 10px";
@@ -239,51 +198,25 @@ function renderFilePreview() {
                 "rgba(255,255,255,.08)";
 
 
-            const label =
-                document.createElement(
-                    "span"
-                );
+            row.innerHTML =
+                `
+                <span>
+                    ${fileIcon(file)}
+                    ${escapeHtml(file.name)}
+                </span>
 
+                <button
+                    type="button"
+                    onclick="removeFile(${index})"
+                    style="
+                        min-width:auto;
+                        padding:3px 8px;
+                    "
+                >
+                    ✕
+                </button>
+                `;
 
-            label.innerText =
-                getFileIcon(file) +
-                " " +
-                file.name;
-
-
-            const remove =
-                document.createElement(
-                    "button"
-                );
-
-
-            remove.type =
-                "button";
-
-            remove.innerText =
-                "✕";
-
-            remove.style.minWidth =
-                "auto";
-
-            remove.style.padding =
-                "3px 8px";
-
-            remove.style.cursor =
-                "pointer";
-
-
-            remove.onclick =
-                () => removeFile(index);
-
-
-            row.appendChild(
-                label
-            );
-
-            row.appendChild(
-                remove
-            );
 
             filePreview.appendChild(
                 row
@@ -298,7 +231,7 @@ function renderFilePreview() {
 // FILE ICON
 // ============================================================
 
-function getFileIcon(file) {
+function fileIcon(file) {
 
     const extension =
         file.name
@@ -307,49 +240,32 @@ function getFileIcon(file) {
             .toLowerCase();
 
 
-    if (
-        extension === "jpg" ||
-        extension === "jpeg" ||
-        extension === "png" ||
-        extension === "webp"
-    ) {
-
-        return "🖼️";
-    }
-
-
-    if (
-        extension === "pdf"
-    ) {
-
+    if (extension === "pdf") {
         return "📄";
     }
 
 
-    if (
-        extension === "docx"
-    ) {
-
-        return "📝";
-    }
-
-
-    if (
-        extension === "xlsx" ||
-        extension === "xls" ||
-        extension === "csv"
-    ) {
-
-        return "📊";
-    }
-
-
-    return "📎";
+    return "🖼️";
 }
 
 
 // ============================================================
-// SET MODE
+// REMOVE
+// ============================================================
+
+function removeFile(index) {
+
+    selectedFiles.splice(
+        index,
+        1
+    );
+
+    showFiles();
+}
+
+
+// ============================================================
+// MODE
 // ============================================================
 
 function setMode(mode) {
@@ -358,31 +274,23 @@ function setMode(mode) {
         mode;
 
 
-    const indicator =
-        document.getElementById(
-            "modeIndicator"
-        );
-
-
-    if (indicator) {
-
-        indicator.innerHTML =
-            "Current Mode: <b>" +
-            mode.toUpperCase() +
-            "</b>";
-
-    }
+    document.getElementById(
+        "modeIndicator"
+    ).innerHTML =
+        "Current Mode: <b>" +
+        mode.toUpperCase() +
+        "</b>";
 
 
     console.log(
-        "Butterfly Mode:",
+        "Mode:",
         currentMode
     );
 }
 
 
 // ============================================================
-// ENTER KEY
+// ENTER
 // ============================================================
 
 function handleKey(event) {
@@ -402,7 +310,7 @@ function handleKey(event) {
 // UPLOAD
 // ============================================================
 
-async function uploadSelectedFiles() {
+async function uploadFiles() {
 
     if (
         selectedFiles.length === 0
@@ -449,17 +357,17 @@ async function uploadSelectedFiles() {
 
         throw new Error(
             data.error ||
-            "File upload failed."
+            "Upload failed."
         );
     }
 
 
-    return data.files || [];
+    return data.files;
 }
 
 
 // ============================================================
-// SEND
+// SEND MESSAGE
 // ============================================================
 
 async function sendMessage() {
@@ -478,7 +386,7 @@ async function sendMessage() {
 
 
     // ========================================================
-    // USER MESSAGE
+    // USER
     // ========================================================
 
     const user =
@@ -496,20 +404,15 @@ async function sendMessage() {
         "Please analyse my uploaded file.";
 
 
-    if (
-        selectedFiles.length > 0
-    ) {
+    selectedFiles.forEach(
+        file => {
 
-        selectedFiles.forEach(
-            file => {
+            user.innerText +=
+                "\n📎 " +
+                file.name;
 
-                user.innerText +=
-                    "\n📎 " +
-                    file.name;
-
-            }
-        );
-    }
+        }
+    );
 
 
     chatBox.appendChild(
@@ -522,7 +425,7 @@ async function sendMessage() {
 
 
     // ========================================================
-    // BOT MESSAGE
+    // BOT
     // ========================================================
 
     const bot =
@@ -554,7 +457,7 @@ async function sendMessage() {
         // UPLOAD
         // ====================================================
 
-        let uploadedFiles = [];
+        let files = [];
 
 
         if (
@@ -562,16 +465,16 @@ async function sendMessage() {
         ) {
 
             bot.innerHTML =
-                "📎 Reading your file...";
+                "📎 Reading your PDF/image...";
 
 
-            uploadedFiles =
-                await uploadSelectedFiles();
+            files =
+                await uploadFiles();
         }
 
 
         // ====================================================
-        // REQUEST
+        // CHAT
         // ====================================================
 
         bot.innerHTML =
@@ -598,7 +501,7 @@ async function sendMessage() {
                             currentMode,
 
                         files:
-                            uploadedFiles
+                            files
 
                     })
                 }
@@ -616,13 +519,13 @@ async function sendMessage() {
 
             throw new Error(
                 data.error ||
-                "Butterfly AI request failed."
+                "Butterfly AI failed."
             );
         }
 
 
         // ====================================================
-        // IMAGE
+        // GENERATED IMAGE
         // ====================================================
 
         if (
@@ -632,33 +535,28 @@ async function sendMessage() {
 
             bot.innerHTML =
                 `
-                <div>
-                    🦋 <b>Butterfly AI</b>
-                </div>
+                🦋 <b>Butterfly AI</b>
 
-                <br>
+                <br><br>
 
                 <img
                     src="${data.image_url}"
                     alt="Generated image"
                     style="
-                        max-width:100%;
-                        display:block;
+                        width:100%;
+                        max-width:600px;
                         border-radius:18px;
-                        margin-top:8px;
                     "
                 >
 
-                <br>
+                <br><br>
 
                 <a
                     href="${data.image_url}"
                     target="_blank"
-                    style="
-                        color:white;
-                    "
+                    style="color:white;"
                 >
-                    Open generated image
+                    Open Image
                 </a>
                 `;
 
@@ -666,57 +564,15 @@ async function sendMessage() {
 
 
         // ====================================================
-        // GENERATED FILE
-        // ====================================================
-
-        else if (
-            data.type ===
-            "file"
-        ) {
-
-            bot.innerHTML =
-                `
-                ${renderMarkdown(
-                    data.reply || ""
-                )}
-
-                <br><br>
-
-                📁 <b>File generated:</b>
-
-                <br>
-
-                <a
-                    href="${data.file_url}"
-                    target="_blank"
-                    download
-                    style="
-                        color:white;
-                        font-weight:bold;
-                    "
-                >
-                    ⬇️ Download
-                    ${escapeHtml(
-                        data.filename ||
-                        "Butterfly_File"
-                    )}
-                </a>
-                `;
-
-        }
-
-
-        // ====================================================
-        // NORMAL CHAT
+        // NORMAL ANSWER
         // ====================================================
 
         else {
 
             bot.innerHTML =
                 renderMarkdown(
-                    data.reply || ""
+                    data.reply
                 );
-
         }
 
 
@@ -726,13 +582,12 @@ async function sendMessage() {
 
         selectedFiles = [];
 
-        renderFilePreview();
+        showFiles();
 
 
     } catch (error) {
 
         console.error(
-            "Butterfly error:",
             error
         );
 
@@ -755,39 +610,30 @@ async function sendMessage() {
 
 
 // ============================================================
-// MARKDOWN
+// SIMPLE MARKDOWN
 // ============================================================
 
 function renderMarkdown(text) {
 
     let html =
-        escapeHtml(text);
+        escapeHtml(
+            text || ""
+        );
 
-
-    // Code blocks
 
     html =
         html.replace(
             /```([\s\S]*?)```/g,
-            function (
-                match,
-                code
-            ) {
-
-                return `
-                <pre style="
-                    overflow-x:auto;
-                    padding:12px;
-                    border-radius:12px;
-                    background:rgba(0,0,0,.35);
-                "><code>${code.trim()}</code></pre>
-                `;
-
-            }
+            `
+            <pre style="
+                overflow-x:auto;
+                padding:12px;
+                border-radius:12px;
+                background:rgba(0,0,0,.35);
+            "><code>$1</code></pre>
+            `
         );
 
-
-    // Bold
 
     html =
         html.replace(
@@ -796,16 +642,12 @@ function renderMarkdown(text) {
         );
 
 
-    // Inline code
-
     html =
         html.replace(
             /`([^`]+)`/g,
             "<code>$1</code>"
         );
 
-
-    // Headings
 
     html =
         html.replace(
@@ -828,16 +670,12 @@ function renderMarkdown(text) {
         );
 
 
-    // Bullets
-
     html =
         html.replace(
             /^[\-\*] (.*)$/gm,
             "• $1"
         );
 
-
-    // Newlines
 
     html =
         html.replace(
@@ -851,7 +689,7 @@ function renderMarkdown(text) {
 
 
 // ============================================================
-// ESCAPE HTML
+// ESCAPE
 // ============================================================
 
 function escapeHtml(text) {
@@ -861,10 +699,8 @@ function escapeHtml(text) {
             "div"
         );
 
-
     div.textContent =
         text;
-
 
     return div.innerHTML;
 }
