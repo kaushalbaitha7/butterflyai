@@ -39,21 +39,13 @@
 
     <!-- Butterflies -->
 
-    <div class="butterfly butterfly1">
-        🦋
-    </div>
+    <div class="butterfly butterfly1">🦋</div>
 
-    <div class="butterfly butterfly2">
-        🦋
-    </div>
+    <div class="butterfly butterfly2">🦋</div>
 
-    <div class="butterfly butterfly3">
-        🦋
-    </div>
+    <div class="butterfly butterfly3">🦋</div>
 
-    <div class="butterfly butterfly4">
-        🦋
-    </div>
+    <div class="butterfly butterfly4">🦋</div>
 
 
     <!-- Main Container -->
@@ -61,7 +53,7 @@
     <div class="chat-container">
 
 
-        <!-- Header -->
+        <!-- HEADER -->
 
         <div class="header">
 
@@ -85,12 +77,10 @@
         </div>
 
 
-        <!-- Prompt Buttons -->
+        <!-- MODES -->
 
         <div class="prompt-bar">
 
-
-            <!-- NORMAL -->
 
             <button
                 class="prompt-btn"
@@ -100,28 +90,6 @@
             </button>
 
 
-            <!-- CODING -->
-
-            <button
-                class="prompt-btn"
-                onclick="setMode('coding')"
-            >
-                💻 Coding
-            </button>
-
-
-            <!-- STUDY -->
-
-            <button
-                class="prompt-btn"
-                onclick="setMode('study')"
-            >
-                📚 Study
-            </button>
-
-
-            <!-- INTERVIEW -->
-
             <button
                 class="prompt-btn"
                 onclick="setMode('interview')"
@@ -130,18 +98,6 @@
             </button>
 
 
-            <!-- CONTENT -->
-
-            <button
-                class="prompt-btn"
-                onclick="setMode('content')"
-            >
-                ✍️ Content
-            </button>
-
-
-            <!-- RESUME -->
-
             <button
                 class="prompt-btn"
                 onclick="setMode('resume')"
@@ -149,10 +105,11 @@
                 📝 Resume
             </button>
 
+
         </div>
 
 
-        <!-- CHAT AREA -->
+        <!-- CHAT -->
 
         <div
             class="chat-box"
@@ -165,44 +122,72 @@
 
                 <br><br>
 
-                Select a mode and start chatting.
+                I can chat, understand your files,
+                answer questions from PDFs,
+                analyse images and documents,
+                generate images, and create
+                PDF, Word and Excel files.
 
-                <br>
+                <br><br>
 
-                You can also attach
-                <b>PDFs, images, Word files,
-                Excel files or documents</b>
-                directly from the chat box.
+                Choose a mode and start chatting. 🦋
 
             </div>
 
         </div>
 
 
-        <!-- INPUT AREA -->
+        <!-- FILE PREVIEW -->
+
+        <div
+            id="filePreview"
+            style="
+                display:none;
+                padding:0 20px 10px;
+                color:white;
+                font-size:13px;
+            "
+        >
+        </div>
+
+
+        <!-- INPUT -->
 
         <div class="input-area">
 
 
-            <!-- ATTACH BUTTON -->
+            <!-- FILE BUTTON -->
 
             <button
                 type="button"
                 id="attachButton"
                 title="Add files"
-                onclick="document.getElementById('fileInput').click()"
+                onclick="
+                    document
+                    .getElementById('fileInput')
+                    .click()
+                "
             >
                 📎
             </button>
 
 
-            <!-- HIDDEN FILE INPUT -->
-
             <input
                 type="file"
                 id="fileInput"
                 multiple
-                accept=".pdf,.png,.jpg,.jpeg,.webp,.docx,.xlsx,.xls,.txt,.csv"
+                accept="
+                    .pdf,
+                    .png,
+                    .jpg,
+                    .jpeg,
+                    .webp,
+                    .docx,
+                    .xlsx,
+                    .xls,
+                    .txt,
+                    .csv
+                "
                 style="display:none;"
             >
 
@@ -213,24 +198,30 @@
                 type="button"
                 id="imageButton"
                 title="Add image"
-                onclick="document.getElementById('imageInput').click()"
+                onclick="
+                    document
+                    .getElementById('imageInput')
+                    .click()
+                "
             >
                 🖼️
             </button>
 
 
-            <!-- HIDDEN IMAGE INPUT -->
-
             <input
                 type="file"
                 id="imageInput"
                 multiple
-                accept="image/png,image/jpeg,image/webp"
+                accept="
+                    image/png,
+                    image/jpeg,
+                    image/webp
+                "
                 style="display:none;"
             >
 
 
-            <!-- TEXT INPUT -->
+            <!-- TEXT -->
 
             <input
                 type="text"
@@ -250,26 +241,12 @@
                 Send ✨
             </button>
 
+
         </div>
-
-
-        <!-- FILE PREVIEW AREA -->
-
-        <div
-            id="filePreview"
-            style="
-                display:none;
-                padding:0 20px 10px;
-                color:white;
-                font-size:13px;
-            "
-        ></div>
 
 
     </div>
 
-
-    <!-- JAVASCRIPT -->
 
     <script
         src="{{ url_for('static', filename='script.js') }}"
