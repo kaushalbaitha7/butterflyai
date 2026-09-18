@@ -2,92 +2,235 @@
 <html lang="en">
 
 <head>
+
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1.0"
+    >
+
     <title>🦋 Butterfly AI</title>
 
-    <link rel="stylesheet"
-          href="{{ url_for('static', filename='style.css') }}">
+
+    <link
+        rel="stylesheet"
+        href="{{ url_for('static', filename='style.css') }}"
+    >
+
 </head>
+
 
 <body>
 
+
     <!-- Background Blobs -->
+
     <div class="blob blob1"></div>
     <div class="blob blob2"></div>
     <div class="blob blob3"></div>
     <div class="blob blob4"></div>
 
+
     <!-- Fireflies -->
+
     <div id="particles"></div>
 
+
     <!-- Butterflies -->
-    <div class="butterfly butterfly1">🦋</div>
-    <div class="butterfly butterfly2">🦋</div>
-    <div class="butterfly butterfly3">🦋</div>
-    <div class="butterfly butterfly4">🦋</div>
+
+    <div class="butterfly butterfly1">
+        🦋
+    </div>
+
+    <div class="butterfly butterfly2">
+        🦋
+    </div>
+
+    <div class="butterfly butterfly3">
+        🦋
+    </div>
+
+    <div class="butterfly butterfly4">
+        🦋
+    </div>
+
 
     <!-- Main Container -->
+
     <div class="chat-container">
 
+
         <!-- Header -->
+
         <div class="header">
 
-            <h1>🦋 Butterfly AI</h1>
+            <h1>
+                🦋 Butterfly AI
+            </h1>
 
-            <p>Your Calm & Intelligent Assistant</p>
+            <p>
+                Your Calm & Intelligent Assistant
+            </p>
 
             <div class="status">
                 ● Online
             </div>
 
             <div id="modeIndicator">
-                Current Mode: Normal
+                Current Mode:
+                <b>Normal</b>
             </div>
 
         </div>
 
+
         <!-- Prompt Buttons -->
+
         <div class="prompt-bar">
 
-            <button class="prompt-btn"
-                    onclick="setMode('coding')">
+
+            <!-- NORMAL -->
+
+            <button
+                class="prompt-btn"
+                onclick="setMode('normal')"
+            >
+                🧠 Normal
+            </button>
+
+
+            <!-- CODING -->
+
+            <button
+                class="prompt-btn"
+                onclick="setMode('coding')"
+            >
                 💻 Coding
             </button>
 
-            <button class="prompt-btn"
-                    onclick="setMode('study')">
+
+            <!-- STUDY -->
+
+            <button
+                class="prompt-btn"
+                onclick="setMode('study')"
+            >
                 📚 Study
             </button>
 
-            <button class="prompt-btn"
-                    onclick="setMode('interview')">
+
+            <!-- INTERVIEW -->
+
+            <button
+                class="prompt-btn"
+                onclick="setMode('interview')"
+            >
                 🎯 Interview
             </button>
 
-            <button class="prompt-btn"
-                    onclick="setMode('content')">
+
+            <!-- CONTENT -->
+
+            <button
+                class="prompt-btn"
+                onclick="setMode('content')"
+            >
                 ✍️ Content
             </button>
 
-            <button class="prompt-btn"
-                    onclick="setMode('resume')">
+
+            <!-- RESUME -->
+
+            <button
+                class="prompt-btn"
+                onclick="setMode('resume')"
+            >
                 📝 Resume
             </button>
 
         </div>
 
-        <!-- Chat Messages -->
-        <div class="chat-box" id="chatBox">
 
-           <div class="bot-message">
-    🌿 Welcome to Butterfly AI. Select a mode and start chatting.
-</div>
+        <!-- CHAT AREA -->
+
+        <div
+            class="chat-box"
+            id="chatBox"
+        >
+
+            <div class="bot-message">
+
+                🌿 Welcome to Butterfly AI.
+
+                <br><br>
+
+                Select a mode and start chatting.
+
+                <br>
+
+                You can also attach
+                <b>PDFs, images, Word files,
+                Excel files or documents</b>
+                directly from the chat box.
+
+            </div>
 
         </div>
 
-        <!-- Input -->
+
+        <!-- INPUT AREA -->
+
         <div class="input-area">
+
+
+            <!-- ATTACH BUTTON -->
+
+            <button
+                type="button"
+                id="attachButton"
+                title="Add files"
+                onclick="document.getElementById('fileInput').click()"
+            >
+                📎
+            </button>
+
+
+            <!-- HIDDEN FILE INPUT -->
+
+            <input
+                type="file"
+                id="fileInput"
+                multiple
+                accept=".pdf,.png,.jpg,.jpeg,.webp,.docx,.xlsx,.xls,.txt,.csv"
+                style="display:none;"
+            >
+
+
+            <!-- IMAGE BUTTON -->
+
+            <button
+                type="button"
+                id="imageButton"
+                title="Add image"
+                onclick="document.getElementById('imageInput').click()"
+            >
+                🖼️
+            </button>
+
+
+            <!-- HIDDEN IMAGE INPUT -->
+
+            <input
+                type="file"
+                id="imageInput"
+                multiple
+                accept="image/png,image/jpeg,image/webp"
+                style="display:none;"
+            >
+
+
+            <!-- TEXT INPUT -->
 
             <input
                 type="text"
@@ -97,15 +240,42 @@
                 onkeypress="handleKey(event)"
             >
 
-            <button onclick="sendMessage()">
+
+            <!-- SEND -->
+
+            <button
+                type="button"
+                onclick="sendMessage()"
+            >
                 Send ✨
             </button>
 
         </div>
 
+
+        <!-- FILE PREVIEW AREA -->
+
+        <div
+            id="filePreview"
+            style="
+                display:none;
+                padding:0 20px 10px;
+                color:white;
+                font-size:13px;
+            "
+        ></div>
+
+
     </div>
 
-    <script src="{{ url_for('static', filename='script.js') }}"></script>
+
+    <!-- JAVASCRIPT -->
+
+    <script
+        src="{{ url_for('static', filename='script.js') }}"
+    ></script>
+
 
 </body>
+
 </html>
