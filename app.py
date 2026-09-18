@@ -1,26 +1,19 @@
+
 from flask import Flask, render_template, request, jsonify, url_for
 from openai import OpenAI
 from dotenv import load_dotenv
 from werkzeug.utils import secure_filename
-
 from pypdf import PdfReader
-from docx import Document
-from openpyxl import load_workbook, Workbook
-from reportlab.lib.pagesizes import A4
-from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer
-from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
-from reportlab.lib.enums import TA_LEFT
 
 import os
 import base64
 import uuid
 import json
-import re
 import fitz
 
 
 # ============================================================
-# ENVIRONMENT
+# SETUP
 # ============================================================
 
 load_dotenv()
@@ -30,11 +23,6 @@ app = Flask(__name__)
 client = OpenAI(
     api_key=os.getenv("OPENAI_API_KEY")
 )
-
-
-# ============================================================
-# MODELS
-# ============================================================
 
 CHAT_MODEL = os.getenv(
     "OPENAI_CHAT_MODEL",
@@ -51,15 +39,8 @@ IMAGE_MODEL = os.getenv(
 # FOLDERS
 # ============================================================
 
-UPLOAD_FOLDER = os.path.join(
-    "static",
-    "uploads"
-)
-
-GENERATED_FOLDER = os.path.join(
-    "static",
-    "generated"
-)
+UPLOAD_FOLDER = "static/uploads"
+GENERATED_FOLDER = "static/generated"
 
 os.makedirs(
     UPLOAD_FOLDER,
@@ -71,18 +52,13 @@ os.makedirs(
     exist_ok=True
 )
 
-
-# ============================================================
-# FILE LIMIT
-# ============================================================
-
-app.config[
-    "MAX_CONTENT_LENGTH"
-] = 25 * 1024 * 1024
+app.config["MAX_CONTENT_LENGTH"] = (
+    25 * 1024 * 1024
+)
 
 
 # ============================================================
-# ALLOWED FILES
+# ONLY PDF + IMAGE FILES
 # ============================================================
 
 ALLOWED_EXTENSIONS = {
@@ -90,18 +66,9 @@ ALLOWED_EXTENSIONS = {
     "png",
     "jpg",
     "jpeg",
-    "webp",
-    "docx",
-    "xlsx",
-    "xls",
-    "txt",
-    "csv"
+    "webp"
 }
 
-
-# ============================================================
-# BASIC HELPERS
-# ============================================================
 
 def allowed_file(filename):
 
@@ -127,16 +94,8 @@ def get_extension(filename):
     )[1].lower()
 
 
-def clean_text(text):
-
-    if not text:
-        return ""
-
-    return text.strip()
-
-
 # ============================================================
-# IMAGE -> DATA URL
+# IMAGE TO DATA URL
 # ============================================================
 
 def image_to_data_url(filepath):
@@ -145,18 +104,12 @@ def image_to_data_url(filepath):
         filepath
     )
 
-    mime_types = {
-
+    mime = {
         "jpg": "image/jpeg",
-
         "jpeg": "image/jpeg",
-
         "png": "image/png",
-
         "webp": "image/webp"
-    }
-
-    mime_type = mime_types.get(
+    }.get(
         extension,
         "image/png"
     )
@@ -171,65 +124,53 @@ def image_to_data_url(filepath):
         ).decode("utf-8")
 
     return (
-        f"data:{mime_type};"
-        f"base64,{encoded}"
+        f"data:{mime};base64,{encoded}"
     )
 
 
 # ============================================================
-# PDF TEXT EXTRACTION
+# PDF TEXT
 # ============================================================
 
 def extract_pdf_text(filepath):
 
-    text_parts = []
+    text = []
 
     try:
 
-        reader = PdfReader(filepath)
+        reader = PdfReader(
+            filepath
+        )
 
-        for index, page in enumerate(
+        for page_number, page in enumerate(
             reader.pages
         ):
 
-            try:
+            page_text = (
+                page.extract_text()
+                or ""
+            )
 
-                page_text = (
-                    page.extract_text()
-                    or ""
-                )
+            if page_text.strip():
 
-                if page_text.strip():
-
-                    text_parts.append(
-                        f"\n--- PAGE {index + 1} ---\n"
-                    )
-
-                    text_parts.append(
-                        page_text
-                    )
-
-            except Exception as error:
-
-                print(
-                    "PDF page error:",
-                    error
+                text.append(
+                    f"\n--- PAGE "
+                    f"{page_number + 1} ---\n"
+                    f"{page_text}"
                 )
 
     except Exception as error:
 
         print(
-            "PDF extraction error:",
+            "PDF TEXT ERROR:",
             error
         )
 
-    return "\n".join(
-        text_parts
-    )
+    return "\n".join(text)
 
 
 # ============================================================
-# PDF PAGE IMAGES
+# PDF PAGES -> IMAGES
 # ============================================================
 
 def extract_pdf_images(
@@ -245,17 +186,17 @@ def extract_pdf_images(
             filepath
         )
 
-        page_count = min(
+        pages = min(
             len(pdf),
             max_pages
         )
 
-        for index in range(
-            page_count
+        for page_number in range(
+            pages
         ):
 
             page = pdf.load_page(
-                index
+                page_number
             )
 
             matrix = fitz.Matrix(
@@ -277,10 +218,14 @@ def extract_pdf_images(
             ).decode("utf-8")
 
             images.append({
-                "page": index + 1,
+
+                "page":
+                    page_number + 1,
+
                 "data_url":
                     "data:image/png;base64,"
                     + encoded
+
             })
 
         pdf.close()
@@ -288,7 +233,7 @@ def extract_pdf_images(
     except Exception as error:
 
         print(
-            "PDF image error:",
+            "PDF IMAGE ERROR:",
             error
         )
 
@@ -296,170 +241,22 @@ def extract_pdf_images(
 
 
 # ============================================================
-# DOCX
-# ============================================================
-
-def extract_docx_text(filepath):
-
-    content = []
-
-    try:
-
-        document = Document(
-            filepath
-        )
-
-        for paragraph in (
-            document.paragraphs
-        ):
-
-            text = paragraph.text.strip()
-
-            if text:
-
-                content.append(
-                    text
-                )
-
-
-        for table_index, table in enumerate(
-            document.tables
-        ):
-
-            content.append(
-                f"\n--- TABLE "
-                f"{table_index + 1} ---"
-            )
-
-            for row in table.rows:
-
-                row_values = []
-
-                for cell in row.cells:
-
-                    row_values.append(
-                        cell.text.strip()
-                    )
-
-                content.append(
-                    " | ".join(
-                        row_values
-                    )
-                )
-
-    except Exception as error:
-
-        print(
-            "DOCX extraction error:",
-            error
-        )
-
-    return "\n".join(
-        content
-    )
-
-
-# ============================================================
-# EXCEL
-# ============================================================
-
-def extract_excel_text(filepath):
-
-    content = []
-
-    try:
-
-        workbook = load_workbook(
-            filepath,
-            read_only=True,
-            data_only=True
-        )
-
-        for sheet in workbook.worksheets:
-
-            content.append(
-                f"\n--- SHEET: "
-                f"{sheet.title} ---"
-            )
-
-            for row in sheet.iter_rows(
-                values_only=True
-            ):
-
-                values = []
-
-                for value in row:
-
-                    if value is None:
-
-                        values.append("")
-
-                    else:
-
-                        values.append(
-                            str(value)
-                        )
-
-                content.append(
-                    " | ".join(values)
-                )
-
-    except Exception as error:
-
-        print(
-            "Excel extraction error:",
-            error
-        )
-
-    return "\n".join(
-        content
-    )
-
-
-# ============================================================
-# TEXT / CSV
-# ============================================================
-
-def extract_plain_text(filepath):
-
-    try:
-
-        with open(
-            filepath,
-            "r",
-            encoding="utf-8",
-            errors="ignore"
-        ) as file:
-
-            return file.read()
-
-    except Exception as error:
-
-        print(
-            "Text file error:",
-            error
-        )
-
-        return ""
-
-
-# ============================================================
-# PROCESS ONE FILE
+# PROCESS UPLOADED FILE
 # ============================================================
 
 def process_file(
     filepath,
-    original_filename
+    filename
 ):
 
     extension = get_extension(
-        original_filename
+        filename
     )
 
     result = {
 
         "filename":
-            original_filename,
+            filename,
 
         "type":
             extension,
@@ -469,10 +266,12 @@ def process_file(
 
         "images":
             []
+
     }
 
-
+    # -------------------------
     # PDF
+    # -------------------------
 
     if extension == "pdf":
 
@@ -488,8 +287,9 @@ def process_file(
             )
         )
 
-
+    # -------------------------
     # IMAGE
+    # -------------------------
 
     elif extension in {
         "jpg",
@@ -511,46 +311,6 @@ def process_file(
 
         ]
 
-
-    # DOCX
-
-    elif extension == "docx":
-
-        result["text"] = (
-            extract_docx_text(
-                filepath
-            )
-        )
-
-
-    # EXCEL
-
-    elif extension in {
-        "xlsx",
-        "xls"
-    }:
-
-        result["text"] = (
-            extract_excel_text(
-                filepath
-            )
-        )
-
-
-    # TXT / CSV
-
-    elif extension in {
-        "txt",
-        "csv"
-    }:
-
-        result["text"] = (
-            extract_plain_text(
-                filepath
-            )
-        )
-
-
     return result
 
 
@@ -569,50 +329,48 @@ def upload():
         if "files" not in request.files:
 
             return jsonify({
-                "success": False,
+
+                "success":
+                    False,
+
                 "error":
-                    "No files received."
+                    "No file selected."
+
             }), 400
 
-
-        incoming_files = (
-            request.files.getlist(
-                "files"
-            )
+        files = request.files.getlist(
+            "files"
         )
-
 
         processed = []
 
+        for file in files:
 
-        for uploaded in incoming_files:
-
-            if not uploaded.filename:
-
+            if not file.filename:
                 continue
 
-
-            original_name = (
-                uploaded.filename
-            )
-
+            filename = file.filename
 
             if not allowed_file(
-                original_name
+                filename
             ):
 
                 return jsonify({
-                    "success": False,
+
+                    "success":
+                        False,
+
                     "error":
-                        "Unsupported file: "
-                        + original_name
+                        "Only PDF and image files are supported."
+
                 }), 400
 
-
             safe_name = secure_filename(
-                original_name
+                filename
             )
 
+            if not safe_name:
+                safe_name = "uploaded_file"
 
             unique_name = (
                 uuid.uuid4().hex
@@ -620,132 +378,154 @@ def upload():
                 + safe_name
             )
 
-
             filepath = os.path.join(
                 UPLOAD_FOLDER,
                 unique_name
             )
 
-
-            uploaded.save(
+            file.save(
                 filepath
             )
 
-
-            file_data = process_file(
-                filepath,
-                original_name
-            )
-
-
             processed.append(
-                file_data
+                process_file(
+                    filepath,
+                    filename
+                )
             )
-
 
         return jsonify({
-            "success": True,
-            "files": processed
-        })
 
+            "success":
+                True,
+
+            "files":
+                processed
+
+        })
 
     except Exception as error:
 
         print(
             "UPLOAD ERROR:",
-            repr(error)
+            error
         )
 
         return jsonify({
-            "success": False,
+
+            "success":
+                False,
+
             "error":
                 str(error)
+
         }), 500
 
 
 # ============================================================
-# MODE PROMPTS
+# MODES
 # ============================================================
 
 def get_mode_prompt(mode):
 
+    # -------------------------
+    # INTERVIEW MODE
+    # -------------------------
+
     if mode == "interview":
 
         return """
+
 You are Butterfly AI in Interview Mode.
 
 Act as a professional interviewer.
 
 Ask relevant questions.
-Evaluate answers.
-Give constructive feedback.
-Explain mistakes.
-Ask follow-up questions.
-Adjust difficulty according to the user's answers.
 
-If the user uploads a resume or document,
-use it as interview context.
+Evaluate the user's answers.
+
+Give constructive feedback.
+
+Ask follow-up questions.
+
+Adjust difficulty according to the
+user's level.
+
+If a PDF or image is uploaded,
+use its actual content as interview
+context.
+
+Do not invent information from
+the uploaded material.
+
 """
 
+    # -------------------------
+    # RESUME MODE
+    # -------------------------
 
     if mode == "resume":
 
         return """
+
 You are Butterfly AI in Resume Mode.
 
-Act as an ATS-focused professional resume reviewer.
+You are an ATS-focused resume reviewer.
 
-Review resumes carefully.
-Improve professional summaries.
-Improve bullet points.
-Improve wording.
-Suggest ATS-friendly improvements.
-Identify weak sections.
-Keep all claims truthful.
+Analyse the uploaded resume carefully.
 
-If a resume file is uploaded,
-analyse its actual content.
+Improve:
+
+- Professional summary
+- Skills
+- Experience
+- Projects
+- Bullet points
+- ATS keywords
+- Formatting suggestions
+
+Never invent experience,
+qualifications, projects, skills,
+or achievements.
+
 """
 
+    # -------------------------
+    # NORMAL MODE
+    # -------------------------
 
     return """
+
 You are Butterfly AI in Normal Mode.
 
-You are a highly capable general-purpose AI assistant.
+You are a highly capable
+general-purpose AI assistant.
 
-You can help with:
+You can answer questions,
+explain concepts, help with coding,
+mathematics, study, research,
+writing, creative work and
+general conversation.
 
-- General questions
-- Coding
-- Mathematics
-- Study
-- Research
-- Writing
-- Documents
-- PDFs
-- Images
-- Data
-- Excel
-- Analysis
-- Summaries
-- Explanations
-- Creative tasks
+You can understand uploaded PDFs
+and images.
 
-When files are attached, carefully understand them
-before answering.
+When a PDF or image is attached,
+carefully analyse its actual content.
 
-Use uploaded files as the primary source when
-the user's question is about those files.
+Answer questions from the uploaded
+material without inventing information.
 
-Never invent information that is not supported
-by the available material.
+If the user asks to create an image,
+poster, diagram, illustration,
+infographic, visual or other artwork,
+use the image-generation system.
 
-Give clear, useful and accurate answers.
 """
 
 
 # ============================================================
-# BUILD FILE CONTEXT
+# FILE TEXT CONTEXT
 # ============================================================
 
 def build_file_context(files):
@@ -754,44 +534,34 @@ def build_file_context(files):
 
     for file in files:
 
+        filename = file.get(
+            "filename",
+            "Uploaded file"
+        )
+
         context.append(
-            "\n\n========== "
-            + file["filename"]
+            "\n========== "
+            + filename
             + " ==========\n"
         )
 
-        context.append(
-            "TYPE: "
-            + file["type"].upper()
-            + "\n"
+        text = file.get(
+            "text",
+            ""
         )
 
-
-        if file.get("text"):
-
-            # Avoid gigantic requests.
-            text = file["text"]
+        if text:
 
             if len(text) > 120000:
 
-                text = text[
-                    :120000
-                ]
-
-                text += (
-                    "\n\n[Content truncated "
-                    "for request size.]"
+                text = (
+                    text[:120000]
+                    + "\n[PDF text truncated]"
                 )
-
-
-            context.append(
-                "\nDOCUMENT CONTENT:\n"
-            )
 
             context.append(
                 text
             )
-
 
     return "\n".join(
         context
@@ -799,10 +569,10 @@ def build_file_context(files):
 
 
 # ============================================================
-# CREATE MULTIMODAL CONTENT
+# MULTIMODAL CONTENT
 # ============================================================
 
-def build_multimodal_content(
+def build_content(
     message,
     files
 ):
@@ -819,13 +589,11 @@ def build_multimodal_content(
 
     ]
 
-
     file_context = (
         build_file_context(
             files
         )
     )
-
 
     if file_context:
 
@@ -835,13 +603,12 @@ def build_multimodal_content(
                 "text",
 
             "text":
-                "\n\nFILE CONTEXT:\n"
+                "\n\nUPLOADED FILE CONTENT:\n"
                 + file_context
+
         })
 
-
     image_count = 0
-
 
     for file in files:
 
@@ -851,9 +618,7 @@ def build_multimodal_content(
         ):
 
             if image_count >= 12:
-
                 break
-
 
             content.append({
 
@@ -866,19 +631,18 @@ def build_multimodal_content(
                         image[
                             "data_url"
                         ]
+
                 }
 
             })
 
-
             image_count += 1
-
 
     return content
 
 
 # ============================================================
-# AI INTENT DETECTION
+# AI ROUTER
 # ============================================================
 
 def detect_intent(
@@ -886,128 +650,124 @@ def detect_intent(
     files
 ):
 
-    classifier_prompt = """
-You are the routing brain of Butterfly AI.
+    prompt = """
 
-Classify the user's request into exactly ONE category:
+You are Butterfly AI's request router.
+
+Choose exactly ONE:
 
 chat
 image
-pdf
-docx
-xlsx
 
-Rules:
+Choose IMAGE when the user wants:
 
-image =
-The user wants an image, poster, diagram, illustration,
-photo, artwork, visual, infographic, generated picture,
-or wants an uploaded image/document transformed into a visual.
+- an image
+- a poster
+- a diagram
+- an illustration
+- a photo
+- an infographic
+- artwork
+- a generated visual
+- an image based on an uploaded PDF
+- an image based on an uploaded image
 
-pdf =
-The user explicitly wants a PDF/document exported as PDF,
-such as "make a PDF", "create PDF", "give me PDF".
-
-docx =
-The user explicitly wants a Word document.
-
-xlsx =
-The user explicitly wants an Excel/spreadsheet file.
-
-chat =
-Everything else, including reading/analyzing PDFs,
-answering questions from documents, summaries, explanations,
-coding, study, general conversation, etc.
+Choose CHAT for everything else.
 
 Return ONLY JSON:
 
-{
-  "intent": "chat|image|pdf|docx|xlsx"
-}
+{"intent": "chat"}
+
+or
+
+{"intent": "image"}
+
 """
 
+    filenames = [
 
-    file_names = [
-        file["filename"]
+        file.get(
+            "filename",
+            ""
+        )
+
         for file in files
+
     ]
 
-
     user_content = (
-        classifier_prompt
-        + "\n\nUSER MESSAGE:\n"
-        + message
-        + "\n\nFILES:\n"
-        + json.dumps(file_names)
-    )
 
+        prompt
+
+        + "\n\nUSER:\n"
+
+        + message
+
+        + "\n\nFILES:\n"
+
+        + json.dumps(
+            filenames
+        )
+
+    )
 
     try:
 
-        response = client.chat.completions.create(
+        response = (
+            client.chat.completions.create(
 
-            model=CHAT_MODEL,
+                model=CHAT_MODEL,
 
-            messages=[
+                messages=[
 
-                {
-                    "role":
-                        "system",
+                    {
+                        "role":
+                            "system",
 
-                    "content":
-                        "Return valid JSON only."
+                        "content":
+                            "Return JSON only."
+                    },
+
+                    {
+                        "role":
+                            "user",
+
+                        "content":
+                            user_content
+                    }
+
+                ],
+
+                response_format={
+                    "type":
+                        "json_object"
                 },
 
-                {
-                    "role":
-                        "user",
-
-                    "content":
-                        user_content
-                }
-
-            ],
-
-            response_format={
-                "type":
-                    "json_object"
-            },
-
-            temperature=0
+                temperature=0
+            )
         )
-
 
         result = json.loads(
-            response.choices[
-                0
-            ].message.content
+
+            response
+            .choices[0]
+            .message.content
+
         )
 
+        if (
+            result.get("intent")
+            == "image"
+        ):
 
-        intent = result.get(
-            "intent",
-            "chat"
-        )
+            return "image"
 
-
-        if intent not in {
-            "chat",
-            "image",
-            "pdf",
-            "docx",
-            "xlsx"
-        }:
-
-            return "chat"
-
-
-        return intent
-
+        return "chat"
 
     except Exception as error:
 
         print(
-            "Intent error:",
+            "ROUTER ERROR:",
             error
         )
 
@@ -1015,7 +775,7 @@ Return ONLY JSON:
 
 
 # ============================================================
-# GENERATE IMAGE PROMPT FROM USER REQUEST + FILE
+# IMAGE PROMPT
 # ============================================================
 
 def create_image_prompt(
@@ -1023,68 +783,79 @@ def create_image_prompt(
     files
 ):
 
-    context = build_file_context(
-        files
+    context = (
+        build_file_context(
+            files
+        )
     )
 
-
     prompt = f"""
-You are preparing a prompt for an advanced
-AI image generation model.
 
-Create ONE detailed visual prompt based on
-the user's request.
+Create a detailed prompt for an
+AI image-generation model.
 
-User request:
+USER REQUEST:
+
 {message}
 
-Available file/document context:
+UPLOADED PDF TEXT CONTEXT:
+
 {context}
 
-If the user refers to information in a PDF,
-document, image or spreadsheet, use that information.
+The uploaded PDF/image may also
+contain visual information.
 
-If the request is a diagram, infographic,
-poster, educational visual or flowchart,
-make the prompt visually precise.
+Create the image prompt so the
+generated image follows the user's
+request and uses relevant information
+from the uploaded material.
 
-If the request is a normal creative image,
+If the user wants a poster,
+make it professional and visually clear.
+
+If the user wants an educational
+diagram, make it accurate,
+structured and easy to understand.
+
+If the user wants a creative image,
 make it visually rich.
 
-Do not discuss the prompt.
-Return ONLY the final image-generation prompt.
-"""
+Do not add unrelated information.
 
+Return ONLY the final image prompt.
+
+"""
 
     try:
 
-        response = client.chat.completions.create(
+        response = (
+            client.chat.completions.create(
 
-            model=CHAT_MODEL,
+                model=CHAT_MODEL,
 
-            messages=[
+                messages=[
 
-                {
-                    "role":
-                        "system",
+                    {
+                        "role":
+                            "system",
 
-                    "content":
-                        "Create image prompts only."
-                },
+                        "content":
+                            "Generate image prompts only."
+                    },
 
-                {
-                    "role":
-                        "user",
+                    {
+                        "role":
+                            "user",
 
-                    "content":
-                        prompt
-                }
+                        "content":
+                            prompt
+                    }
 
-            ],
+                ],
 
-            temperature=0.7
+                temperature=0.7
+            )
         )
-
 
         return (
             response
@@ -1093,11 +864,10 @@ Return ONLY the final image-generation prompt.
             .strip()
         )
 
-
     except Exception as error:
 
         print(
-            "Image prompt error:",
+            "IMAGE PROMPT ERROR:",
             error
         )
 
@@ -1105,7 +875,7 @@ Return ONLY the final image-generation prompt.
 
 
 # ============================================================
-# IMAGE GENERATION
+# GENERATE IMAGE
 # ============================================================
 
 def generate_image(
@@ -1120,7 +890,6 @@ def generate_image(
         )
     )
 
-
     response = client.images.generate(
 
         model=IMAGE_MODEL,
@@ -1128,8 +897,17 @@ def generate_image(
         prompt=image_prompt,
 
         size="1024x1024"
+
     )
 
+    if (
+        not response.data
+        or not response.data[0].b64_json
+    ):
+
+        raise RuntimeError(
+            "Image generation returned no image."
+        )
 
     image_base64 = (
         response
@@ -1137,26 +915,29 @@ def generate_image(
         .b64_json
     )
 
-
     image_bytes = (
         base64.b64decode(
             image_base64
         )
     )
 
-
     filename = (
-        "butterfly_"
-        + uuid.uuid4().hex
-        + ".png"
-    )
 
+        "butterfly_"
+
+        + uuid.uuid4().hex
+
+        + ".png"
+
+    )
 
     filepath = os.path.join(
-        GENERATED_FOLDER,
-        filename
-    )
 
+        GENERATED_FOLDER,
+
+        filename
+
+    )
 
     with open(
         filepath,
@@ -1167,17 +948,19 @@ def generate_image(
             image_bytes
         )
 
-
     return url_for(
+
         "static",
+
         filename=
             "generated/"
             + filename
+
     )
 
 
 # ============================================================
-# GENERATE TEXT
+# CHAT ANSWER
 # ============================================================
 
 def generate_answer(
@@ -1186,305 +969,45 @@ def generate_answer(
     files
 ):
 
-    system_prompt = (
-        get_mode_prompt(
-            mode
+    response = (
+        client.chat.completions.create(
+
+            model=CHAT_MODEL,
+
+            messages=[
+
+                {
+                    "role":
+                        "system",
+
+                    "content":
+                        get_mode_prompt(
+                            mode
+                        )
+                },
+
+                {
+                    "role":
+                        "user",
+
+                    "content":
+                        build_content(
+                            message,
+                            files
+                        )
+                }
+
+            ],
+
+            temperature=0.5
         )
     )
-
-
-    content = (
-        build_multimodal_content(
-            message,
-            files
-        )
-    )
-
-
-    response = client.chat.completions.create(
-
-        model=CHAT_MODEL,
-
-        messages=[
-
-            {
-                "role":
-                    "system",
-
-                "content":
-                    system_prompt
-            },
-
-            {
-                "role":
-                    "user",
-
-                "content":
-                    content
-            }
-
-        ],
-
-        temperature=0.5
-    )
-
 
     return (
         response
         .choices[0]
         .message.content
-    )
-
-
-# ============================================================
-# GENERATE PDF
-# ============================================================
-
-def create_pdf(
-    title,
-    content
-):
-
-    filename = (
-        "butterfly_"
-        + uuid.uuid4().hex
-        + ".pdf"
-    )
-
-
-    filepath = os.path.join(
-        GENERATED_FOLDER,
-        filename
-    )
-
-
-    styles = (
-        getSampleStyleSheet()
-    )
-
-
-    normal_style = ParagraphStyle(
-
-        "ButterflyNormal",
-
-        parent=styles["BodyText"],
-
-        fontSize=10,
-
-        leading=15,
-
-        alignment=TA_LEFT,
-
-        spaceAfter=8
-    )
-
-
-    title_style = ParagraphStyle(
-
-        "ButterflyTitle",
-
-        parent=styles["Title"],
-
-        fontSize=20,
-
-        leading=25,
-
-        spaceAfter=15
-    )
-
-
-    document = SimpleDocTemplate(
-
-        filepath,
-
-        pagesize=A4,
-
-        rightMargin=40,
-
-        leftMargin=40,
-
-        topMargin=40,
-
-        bottomMargin=40
-    )
-
-
-    story = []
-
-
-    story.append(
-        Paragraph(
-            title,
-            title_style
-        )
-    )
-
-
-    for line in content.splitlines():
-
-        line = line.strip()
-
-        if not line:
-
-            story.append(
-                Spacer(
-                    1,
-                    8
-                )
-            )
-
-            continue
-
-
-        safe_line = (
-            line
-            .replace(
-                "&",
-                "&amp;"
-            )
-            .replace(
-                "<",
-                "&lt;"
-            )
-            .replace(
-                ">",
-                "&gt;"
-            )
-        )
-
-
-        story.append(
-            Paragraph(
-                safe_line,
-                normal_style
-            )
-        )
-
-
-    document.build(
-        story
-    )
-
-
-    return url_for(
-        "static",
-        filename=
-            "generated/"
-            + filename
-    )
-
-
-# ============================================================
-# GENERATE DOCX
-# ============================================================
-
-def create_docx(
-    title,
-    content
-):
-
-    filename = (
-        "butterfly_"
-        + uuid.uuid4().hex
-        + ".docx"
-    )
-
-
-    filepath = os.path.join(
-        GENERATED_FOLDER,
-        filename
-    )
-
-
-    document = Document()
-
-
-    document.add_heading(
-        title,
-        level=1
-    )
-
-
-    for line in content.splitlines():
-
-        if line.strip():
-
-            document.add_paragraph(
-                line
-            )
-
-
-    document.save(
-        filepath
-    )
-
-
-    return url_for(
-        "static",
-        filename=
-            "generated/"
-            + filename
-    )
-
-
-# ============================================================
-# GENERATE XLSX
-# ============================================================
-
-def create_xlsx(
-    title,
-    content
-):
-
-    filename = (
-        "butterfly_"
-        + uuid.uuid4().hex
-        + ".xlsx"
-    )
-
-
-    filepath = os.path.join(
-        GENERATED_FOLDER,
-        filename
-    )
-
-
-    workbook = Workbook()
-
-    sheet = workbook.active
-
-    sheet.title = "Butterfly AI"
-
-
-    sheet["A1"] = title
-
-
-    row = 3
-
-
-    for line in content.splitlines():
-
-        if line.strip():
-
-            sheet.cell(
-                row=row,
-                column=1,
-                value=line
-            )
-
-            row += 1
-
-
-    workbook.save(
-        filepath
-    )
-
-
-    return url_for(
-        "static",
-        filename=
-            "generated/"
-            + filename
+        .strip()
     )
 
 
@@ -1505,11 +1028,14 @@ def chat():
         if not data:
 
             return jsonify({
-                "success": False,
+
+                "success":
+                    False,
+
                 "error":
                     "Invalid request."
-            }), 400
 
+            }), 400
 
         message = (
             data.get(
@@ -1519,7 +1045,6 @@ def chat():
             .strip()
         )
 
-
         mode = (
             data.get(
                 "mode",
@@ -1528,66 +1053,55 @@ def chat():
             .lower()
         )
 
-
         files = data.get(
             "files",
             []
         )
 
-
-        if not message and not files:
-
-            return jsonify({
-                "success": False,
-                "error":
-                    "Please enter a message or attach a file."
-            }), 400
-
-
         if mode not in {
+
             "normal",
             "interview",
             "resume"
+
         }:
 
             mode = "normal"
 
-
         if not message:
 
             message = (
-                "Analyse the uploaded file(s) "
-                "and explain the important information."
+
+                "Analyse the uploaded PDF "
+                "or image and explain the "
+                "important information."
+
             )
 
-
-        # ====================================================
-        # INTENT
-        # ====================================================
-
         intent = detect_intent(
+
             message,
             files
+
         )
 
-
         print(
-            "Butterfly intent:",
+            "Butterfly Intent:",
             intent
         )
 
-
-        # ====================================================
-        # IMAGE
-        # ====================================================
+        # ================================================
+        # IMAGE GENERATION
+        # ================================================
 
         if intent == "image":
 
             image_url = generate_image(
+
                 message,
                 files
-            )
 
+            )
 
             return jsonify({
 
@@ -1602,133 +1116,20 @@ def chat():
 
                 "reply":
                     "🦋 Your image is ready."
+
             })
 
-
-        # ====================================================
-        # PDF
-        # ====================================================
-
-        if intent == "pdf":
-
-            content = generate_answer(
-                message,
-                mode,
-                files
-            )
-
-
-            pdf_url = create_pdf(
-                "Butterfly AI",
-                content
-            )
-
-
-            return jsonify({
-
-                "success":
-                    True,
-
-                "type":
-                    "file",
-
-                "file_url":
-                    pdf_url,
-
-                "filename":
-                    "Butterfly_AI.pdf",
-
-                "reply":
-                    content
-            })
-
-
-        # ====================================================
-        # DOCX
-        # ====================================================
-
-        if intent == "docx":
-
-            content = generate_answer(
-                message,
-                mode,
-                files
-            )
-
-
-            docx_url = create_docx(
-                "Butterfly AI",
-                content
-            )
-
-
-            return jsonify({
-
-                "success":
-                    True,
-
-                "type":
-                    "file",
-
-                "file_url":
-                    docx_url,
-
-                "filename":
-                    "Butterfly_AI.docx",
-
-                "reply":
-                    content
-            })
-
-
-        # ====================================================
-        # XLSX
-        # ====================================================
-
-        if intent == "xlsx":
-
-            content = generate_answer(
-                message,
-                mode,
-                files
-            )
-
-
-            xlsx_url = create_xlsx(
-                "Butterfly AI",
-                content
-            )
-
-
-            return jsonify({
-
-                "success":
-                    True,
-
-                "type":
-                    "file",
-
-                "file_url":
-                    xlsx_url,
-
-                "filename":
-                    "Butterfly_AI.xlsx",
-
-                "reply":
-                    content
-            })
-
-
-        # ====================================================
-        # NORMAL CHAT
-        # ====================================================
+        # ================================================
+        # CHAT / PDF / IMAGE ANALYSIS
+        # ================================================
 
         answer = generate_answer(
+
             message,
             mode,
             files
-        )
 
+        )
 
         return jsonify({
 
@@ -1740,19 +1141,15 @@ def chat():
 
             "reply":
                 answer
-        })
 
+        })
 
     except Exception as error:
 
         print(
-            "\nBUTTERFLY ERROR:"
-        )
-
-        print(
+            "BUTTERFLY ERROR:",
             repr(error)
         )
-
 
         return jsonify({
 
@@ -1760,10 +1157,11 @@ def chat():
                 False,
 
             "error":
-                "Butterfly AI could not process your request.",
+                "Butterfly AI could not process the request.",
 
             "details":
                 str(error)
+
         }), 500
 
 
@@ -1789,6 +1187,7 @@ def health():
 
         "image_model":
             IMAGE_MODEL
+
     })
 
 
@@ -1805,18 +1204,19 @@ def home():
 
 
 # ============================================================
-# RUN
+# START
 # ============================================================
 
 if __name__ == "__main__":
 
     port = int(
+
         os.environ.get(
             "PORT",
             8080
         )
-    )
 
+    )
 
     app.run(
 
@@ -1825,4 +1225,5 @@ if __name__ == "__main__":
         port=port,
 
         debug=False
+
     )
